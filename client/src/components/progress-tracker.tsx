@@ -15,6 +15,8 @@ interface Props {
 }
 
 export default function ProgressTracker({ campaign, contents, deployments }: Props) {
+  const hasCompletedDeployment = deployments.some(d => d.status === "complete");
+
   const steps = [
     {
       id: "content",
@@ -32,7 +34,7 @@ export default function ProgressTracker({ campaign, contents, deployments }: Pro
       id: "deployment",
       name: "Deployment",
       icon: Clock,
-      status: deployments.length > 0 ? "complete" : "pending",
+      status: hasCompletedDeployment ? "complete" : (deployments.length > 0 ? "generating" : "pending"),
     },
   ];
 
@@ -56,11 +58,16 @@ export default function ProgressTracker({ campaign, contents, deployments }: Pro
               <Icon className="h-6 w-6 text-muted-foreground" />
               <div className="flex-1">
                 <h3 className="font-medium">{step.name}</h3>
+                <p className="text-sm text-muted-foreground capitalize">
+                  {step.status}
+                </p>
               </div>
               <StatusIcon
                 className={`h-5 w-5 ${
                   step.status === "complete"
                     ? "text-green-500"
+                    : step.status === "generating"
+                    ? "text-yellow-500 animate-pulse"
                     : "text-muted-foreground"
                 }`}
               />

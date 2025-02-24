@@ -32,20 +32,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(campaign);
   });
 
-  // Chat and Content Generation
-  app.post("/api/chat", async (req, res) => {
+  // Banner preview route
+  app.get("/api/banners/:deploymentId", async (req, res) => {
     try {
-      const { message } = z.object({
-        message: z.string(),
-      }).parse(req.body);
+      const deploymentId = Number(req.params.deploymentId);
+      const deployment = await storage.getDeployment(deploymentId);
 
-      const response = await generateCampaignText(message);
-      res.json({ response });
+      if (!deployment) {
+        res.status(404).json({ error: "Banner not found" });
+        return;
+      }
+
+      // If requesting HTML preview
+      if (req.headers.accept?.includes("text/html")) {
+        res.setHeader("Content-Type", "text/html");
+        res.setHeader("Cache-Control", "no-cache");
+        res.send(deployment.bannerHtml);
+        return;
+      }
+
+      res.json({
+        ...deployment,
+        previewUrl: `/api/banners/${deploymentId}`,
+      });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
+  // Content Generation
   app.post("/api/campaigns/:id/generate", async (req, res) => {
     try {
       const { prompt, type } = z.object({
@@ -78,34 +93,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/campaigns/:id/contents", async (req, res) => {
     const contents = await storage.getContentsByCampaign(Number(req.params.id));
     res.json(contents);
-  });
-
-  // Banner preview route
-  app.get("/api/banners/:deploymentId", async (req, res) => {
-    try {
-      const deploymentId = Number(req.params.deploymentId);
-      const deployment = await storage.getDeployment(deploymentId);
-
-      if (!deployment) {
-        res.status(404).json({ error: "Banner not found" });
-        return;
-      }
-
-      // If requesting HTML preview
-      if (req.headers.accept?.includes("text/html")) {
-        res.setHeader("Content-Type", "text/html");
-        res.setHeader("Cache-Control", "no-cache");
-        res.send(deployment.bannerHtml);
-        return;
-      }
-
-      res.json({
-        ...deployment,
-        previewUrl: `/api/banners/${deploymentId}`,
-      });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
   });
 
   // Deployments
@@ -158,7 +145,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         // Update deployment with banner HTML
-        await storage.updateDeployment(deployment.id, {
+        const updatedDeployment = await storage.updateDeployment(deployment.id, {
           bannerHtml,
           bannerPreview: bannerHtml,
           status: "complete",
@@ -169,8 +156,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Return deployment with banner URL
         res.json({
-          ...deployment,
-          status: "complete",
+          ...updatedDeployment,
           previewUrl: `/api/banners/${deployment.id}`,
         });
       } catch (error: any) {

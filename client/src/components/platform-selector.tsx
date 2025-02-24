@@ -70,7 +70,10 @@ export default function PlatformSelector({ campaignId, selectedPlatforms, deploy
 
   const handlePlatformClick = async (platform: string) => {
     try {
+      // First update platform selection
       await updatePlatformsMutation.mutateAsync(platform);
+
+      // Then trigger deployment if not already selected
       if (!selectedPlatforms.includes(platform)) {
         await deployMutation.mutateAsync(platform);
       }
@@ -131,7 +134,20 @@ export default function PlatformSelector({ campaignId, selectedPlatforms, deploy
                 {deployment.platform === "tiktok" && <SiTiktok className="h-5 w-5" />}
                 <span className="capitalize">{deployment.platform}</span>
               </div>
-              <span className="text-sm text-muted-foreground capitalize">{deployment.status}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground capitalize">
+                  {deployment.status}
+                </span>
+                {deployment.bannerPreview && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => window.open(`/api/banners/${deployment.id}`, '_blank')}
+                  >
+                    View Banner
+                  </Button>
+                )}
+              </div>
             </div>
           </Card>
         ))}
