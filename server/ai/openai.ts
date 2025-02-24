@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { generateBannerHTML } from "../utils/bannerGenerator";
 
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -19,40 +20,24 @@ export async function generateLandingPage(campaignDetails: {
   description: string;
   target: Record<string, any>;
 }): Promise<string> {
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    messages: [
-      {
-        role: "system",
-        content: `${MARKETING_EXPERT_PROMPT}\nGenerate a responsive HTML banner for a marketing campaign. Return response as a JSON object with a single 'html' key containing the HTML code. The HTML should:
-1. Use modern CSS Grid/Flexbox for layout
-2. Be optimized for the target platform
-3. Include both text and image content with proper formatting
-4. Use CSS animations for engagement
-5. Support markdown-style formatting (headings, lists, bold, etc.)
-6. Return ONLY valid JSON in this format: { "html": "<!DOCTYPE html>...your html code here..." }`,
-      },
-      {
-        role: "user",
-        content: `Generate a banner for the following campaign:
-Name: ${campaignDetails.name}
-Description: ${campaignDetails.description}
-Platform: ${campaignDetails.target.platform}
-Image URL: ${campaignDetails.target.imageUrl}
+  try {
+    // Generate the banner HTML using our utility function
+    const bannerHtml = generateBannerHTML({
+      name: campaignDetails.name,
+      description: campaignDetails.description,
+      imageUrl: campaignDetails.target.imageUrl,
+      platform: campaignDetails.target.platform,
+    });
 
-Requirements:
-- Convert any markdown-style formatting in the description to HTML
-- Add CSS for responsive design and animations
-- Create an engaging layout optimized for ${campaignDetails.target.platform}
+    if (!bannerHtml) {
+      throw new Error("Failed to generate banner HTML");
+    }
 
-Return the HTML code as JSON.`,
-      },
-    ],
-    response_format: { type: "json_object" },
-  });
-
-  const result = JSON.parse(response.choices[0].message.content || "{}");
-  return result.html || "";
+    return bannerHtml;
+  } catch (error: any) {
+    console.error("Banner generation error:", error);
+    throw error;
+  }
 }
 
 export async function generateCampaignText(prompt: string): Promise<string> {

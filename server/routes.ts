@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { z } from "zod";
 import { insertCampaignSchema, insertContentSchema, insertDeploymentSchema } from "@shared/schema";
 import { analyzeImage, generateImage, summarizeArticle, generateCampaignText, generateLandingPage } from "./ai/openai";
+import { generateBannerHTML } from "./utils/bannerGenerator";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Campaigns
@@ -93,11 +94,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // If requesting HTML preview
       if (req.headers.accept?.includes("text/html")) {
         res.setHeader("Content-Type", "text/html");
+        res.setHeader("Cache-Control", "no-cache");
         res.send(deployment.bannerHtml);
         return;
       }
 
-      res.json(deployment);
+      res.json({
+        ...deployment,
+        previewUrl: `/api/banners/${deploymentId}`,
+      });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -140,21 +145,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       try {
-        // Generate platform-specific banner HTML
-        const bannerHtml = await generateLandingPage({
+        // Generate banner HTML using our utility
+        const bannerHtml = generateBannerHTML({
           name: campaign.name,
           description: textContent,
-          target: {
-            platform,
-            imageUrl: imageContent,
-          },
+          imageUrl: imageContent,
+          platform,
         });
 
         if (!bannerHtml) {
           throw new Error("Failed to generate banner HTML");
         }
 
-        // Update deployment with generated banner
+        // Update deployment with banner HTML
         await storage.updateDeployment(deployment.id, {
           bannerHtml,
           bannerPreview: bannerHtml,
@@ -167,8 +170,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Return deployment with banner URL
         res.json({
           ...deployment,
-          bannerUrl: `/api/banners/${deployment.id}`,
           status: "complete",
+          previewUrl: `/api/banners/${deployment.id}`,
         });
       } catch (error: any) {
         // If banner generation fails, update deployment status
