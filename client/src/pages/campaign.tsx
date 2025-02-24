@@ -4,6 +4,7 @@ import type { Campaign, Content, Deployment } from "@shared/schema";
 import ContentGenerator from "@/components/content-generator";
 import PlatformSelector from "@/components/platform-selector";
 import ProgressTracker from "@/components/progress-tracker";
+import CodeDisplay from "@/components/code-display";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
@@ -24,6 +25,8 @@ export default function CampaignPage() {
   });
 
   if (!campaign) return null;
+
+  const latestDeployment = deployments?.find(d => d.status === "complete");
 
   return (
     <div className="container mx-auto py-8">
@@ -76,28 +79,13 @@ export default function CampaignPage() {
             </CardContent>
           </Card>
 
-          {deployments?.map((deployment) => (
-            deployment.bannerPreview && (
-              <Card key={deployment.id}>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle>Banner Preview - {deployment.platform}</CardTitle>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open(`/api/banners/${deployment.id}`, '_blank')}
-                  >
-                    Open Banner
-                  </Button>
-                </CardHeader>
-                <CardContent>
-                  <div 
-                    className="rounded-lg border bg-card overflow-hidden"
-                    dangerouslySetInnerHTML={{ __html: deployment.bannerPreview }}
-                  />
-                </CardContent>
-              </Card>
-            )
-          ))}
+          {latestDeployment?.bannerHtml && (
+            <CodeDisplay
+              title="Generated Banner HTML"
+              code={latestDeployment.bannerHtml}
+              language="html"
+            />
+          )}
         </div>
       </div>
     </div>
