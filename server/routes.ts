@@ -120,6 +120,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(deployments);
   });
 
+  app.patch("/api/campaigns/:id/platforms", async (req, res) => {
+    try {
+      const { platforms } = z.object({
+        platforms: z.array(z.string()),
+      }).parse(req.body);
+
+      const result = await storage.updateCampaignPlatforms(Number(req.params.id), platforms);
+      res.json(result);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

@@ -5,6 +5,7 @@ import { CheckCircle, Loader2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { SiFacebook, SiInstagram, SiTiktok } from "react-icons/si";
 import type { Deployment } from "@shared/schema";
+import { useToast } from "@/hooks/use-toast";
 
 interface Props {
   campaignId: number;
@@ -20,8 +21,25 @@ const platforms = [
 
 export default function PlatformSelector({ campaignId, selectedPlatforms, deployments }: Props) {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
-  const mutation = useMutation({
+  const updatePlatformsMutation = useMutation({
+    mutationFn: async (platform: string) => {
+      const newPlatforms = selectedPlatforms.includes(platform) 
+        ? selectedPlatforms.filter(p => p !== platform)
+        : [...selectedPlatforms, platform];
+
+      const res = await apiRequest("PATCH", `/api/campaigns/${campaignId}/platforms`, {
+        platforms: newPlatforms,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/campaigns/${campaignId}`] });
+    },
+  });
+
+  const deployMutation = useMutation({
     mutationFn: async (platform: string) => {
       const res = await apiRequest("POST", `/api/campaigns/${campaignId}/deploy`, {
         platform,
@@ -36,8 +54,27 @@ export default function PlatformSelector({ campaignId, selectedPlatforms, deploy
           `/api/campaigns/${campaignId}/deployments`
         ] 
       });
+      toast({
+        title: "Deployment started",
+        description: "The banner is being generated and will be displayed shortly.",
+      });
     },
   });
+
+  const handlePlatformClick = async (platform: string) => {
+    try {
+      await updatePlatformsMutation.mutateAsync(platform);
+      if (!selectedPlatforms.includes(platform)) {
+        await deployMutation.mutateAsync(platform);
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update platform selection.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const getDeploymentStatus = (platformId: string) => {
     const deployment = deployments.find(d => d.platform === platformId);
@@ -52,14 +89,15 @@ export default function PlatformSelector({ campaignId, selectedPlatforms, deploy
           const status = getDeploymentStatus(id);
           const isGenerating = status === "generating";
           const isComplete = status === "complete";
+          const isPending = updatePlatformsMutation.isPending || deployMutation.isPending;
 
           return (
             <Button
               key={id}
               variant={isSelected ? "secondary" : "outline"}
               className="h-24 relative"
-              onClick={() => mutation.mutate(id)}
-              disabled={mutation.isPending || isGenerating}
+              onClick={() => handlePlatformClick(id)}
+              disabled={isPending || isGenerating}
             >
               <div className="flex flex-col items-center gap-2">
                 <Icon className="h-8 w-8" />

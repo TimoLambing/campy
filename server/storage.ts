@@ -10,6 +10,7 @@ export interface IStorage {
   getCampaign(id: number): Promise<Campaign | undefined>;
   getAllCampaigns(): Promise<Campaign[]>;
   updateCampaignStatus(id: number, status: string): Promise<Campaign>;
+  updateCampaignPlatforms(id: number, platforms: string[]): Promise<Campaign>;
 
   // Contents
   createContent(content: InsertContent): Promise<Content>;
@@ -58,6 +59,14 @@ export class MemStorage implements IStorage {
     const campaign = this.campaigns.get(id);
     if (!campaign) throw new Error("Campaign not found");
     const updated = { ...campaign, status };
+    this.campaigns.set(id, updated);
+    return updated;
+  }
+
+  async updateCampaignPlatforms(id: number, platforms: string[]): Promise<Campaign> {
+    const campaign = this.campaigns.get(id);
+    if (!campaign) throw new Error("Campaign not found");
+    const updated = { ...campaign, platforms };
     this.campaigns.set(id, updated);
     return updated;
   }
