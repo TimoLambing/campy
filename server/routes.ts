@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
 import { insertCampaignSchema, insertContentSchema, insertDeploymentSchema } from "@shared/schema";
-import { analyzeImage, generateImage, summarizeArticle } from "./ai/openai";
+import { analyzeImage, generateImage, summarizeArticle, generateCampaignText } from "./ai/openai";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Campaigns
@@ -12,7 +12,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const campaign = insertCampaignSchema.parse(req.body);
       const result = await storage.createCampaign(campaign);
       res.json(result);
-    } catch (error) {
+    } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
   });
@@ -31,14 +31,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(campaign);
   });
 
-  // Content Generation
-  app.post("/api/campaigns/:id/generate", async (req, res) => {
-    const { prompt, type } = z.object({
-      prompt: z.string(),
-      type: z.enum(["text", "image"]),
-    }).parse(req.body);
-
+  // Chat and Content Generation
+  app.post("/api/chat", async (req, res) => {
     try {
+      const { message } = z.object({
+        message: z.string(),
+      }).parse(req.body);
+
+      const response = await generateCampaignText(message);
+      res.json({ response });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/campaigns/:id/generate", async (req, res) => {
+    try {
+      const { prompt, type } = z.object({
+        prompt: z.string(),
+        type: z.enum(["text", "image"]),
+      }).parse(req.body);
+
       let content;
       if (type === "text") {
         content = await summarizeArticle(prompt);
@@ -56,7 +69,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       res.json(newContent);
-    } catch (error) {
+    } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
@@ -68,13 +81,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Deployments
   app.post("/api/campaigns/:id/deploy", async (req, res) => {
-    const deployment = insertDeploymentSchema.parse({
-      ...req.body,
-      campaignId: Number(req.params.id),
-    });
-    
-    const result = await storage.createDeployment(deployment);
-    res.json(result);
+    try {
+      const deployment = insertDeploymentSchema.parse({
+        ...req.body,
+        campaignId: Number(req.params.id),
+      });
+
+      const result = await storage.createDeployment(deployment);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
   });
 
   app.get("/api/campaigns/:id/deployments", async (req, res) => {

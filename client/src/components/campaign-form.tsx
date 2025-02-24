@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { insertCampaignSchema } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,9 +21,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { useState } from "react";
 
 export default function CampaignForm({ children }: { children: React.ReactNode }) {
   const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const queryClient = useQueryClient();
+
   const form = useForm({
     resolver: zodResolver(insertCampaignSchema),
     defaultValues: {
@@ -35,20 +39,23 @@ export default function CampaignForm({ children }: { children: React.ReactNode }
   });
 
   const mutation = useMutation({
-    mutationFn: async (values) => {
+    mutationFn: async (values: any) => {
       const res = await apiRequest("POST", "/api/campaigns", values);
       return res.json();
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
       toast({
         title: "Campaign created",
         description: "Your campaign has been created successfully.",
       });
+      setOpen(false);
+      form.reset();
     },
   });
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent>
         <DialogHeader>
