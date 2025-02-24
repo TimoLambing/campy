@@ -27,9 +27,10 @@ export async function generateLandingPage(campaignDetails: {
         content: `${MARKETING_EXPERT_PROMPT}\nGenerate a responsive HTML banner for a marketing campaign. Return response as a JSON object with a single 'html' key containing the HTML code. The HTML should:
 1. Use modern CSS Grid/Flexbox for layout
 2. Be optimized for the target platform
-3. Include both text and image content
+3. Include both text and image content with proper formatting
 4. Use CSS animations for engagement
-5. Return ONLY valid JSON in this format: { "html": "<!DOCTYPE html>...your html code here..." }`,
+5. Support markdown-style formatting (headings, lists, bold, etc.)
+6. Return ONLY valid JSON in this format: { "html": "<!DOCTYPE html>...your html code here..." }`,
       },
       {
         role: "user",
@@ -38,6 +39,11 @@ Name: ${campaignDetails.name}
 Description: ${campaignDetails.description}
 Platform: ${campaignDetails.target.platform}
 Image URL: ${campaignDetails.target.imageUrl}
+
+Requirements:
+- Convert any markdown-style formatting in the description to HTML
+- Add CSS for responsive design and animations
+- Create an engaging layout optimized for ${campaignDetails.target.platform}
 
 Return the HTML code as JSON.`,
       },
@@ -80,7 +86,6 @@ export async function generateCampaignImage(prompt: string): Promise<string> {
 
   return response.data[0].url || "";
 }
-
 
 export async function analyzeContent(content: string): Promise<{
   sentiment: number;

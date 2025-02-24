@@ -21,6 +21,7 @@ export interface IStorage {
   createDeployment(deployment: InsertDeployment): Promise<Deployment>;
   getDeploymentsByCampaign(campaignId: number): Promise<Deployment[]>;
   updateDeployment(id: number, deployment: Partial<Deployment>): Promise<Deployment>;
+  getDeployment(id: number): Promise<Deployment | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -109,6 +110,9 @@ export class MemStorage implements IStorage {
     const updated = { ...existing, ...deployment };
     this.deployments.set(id, updated);
     return updated;
+  }
+  async getDeployment(id: number): Promise<Deployment | undefined> {
+    return this.deployments.get(id);
   }
 }
 

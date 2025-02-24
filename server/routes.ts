@@ -79,6 +79,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(contents);
   });
 
+  // Banner preview route
+  app.get("/api/banners/:deploymentId", async (req, res) => {
+    try {
+      const deploymentId = Number(req.params.deploymentId);
+      const deployment = await storage.getDeployment(deploymentId);
+
+      if (!deployment) {
+        res.status(404).json({ error: "Banner not found" });
+        return;
+      }
+
+      // If requesting HTML preview
+      if (req.headers.accept?.includes("text/html")) {
+        res.setHeader("Content-Type", "text/html");
+        res.send(deployment.bannerHtml);
+        return;
+      }
+
+      res.json(deployment);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Deployments
   app.post("/api/campaigns/:id/deploy", async (req, res) => {
     try {
@@ -87,16 +111,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         platform: z.string(),
       }).parse(req.body);
 
-      // First create deployment in "generating" status
-      const deployment = await storage.createDeployment({
-        campaignId,
-        platform,
-        status: "generating",
-        cost: null,
-        metrics: {},
-      });
-
-      // Get campaign and content data
+      // Get campaign and content data first
       const campaign = await storage.getCampaign(campaignId);
       const contents = await storage.getContentsByCampaign(campaignId);
 
@@ -114,6 +129,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!textContent || !imageContent) {
         throw new Error("Both text and image content are required");
       }
+
+      // Create initial deployment
+      const deployment = await storage.createDeployment({
+        campaignId,
+        platform,
+        status: "generating",
+        cost: null,
+        metrics: {},
+      });
 
       try {
         // Generate platform-specific banner HTML
@@ -137,14 +161,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: "complete",
         });
 
-        const updatedDeployment = await storage.updateCampaignStatus(
-          campaignId,
-          "deployed"
-        );
+        // Update campaign status
+        await storage.updateCampaignStatus(campaignId, "deployed");
 
-        res.json(updatedDeployment);
+        // Return deployment with banner URL
+        res.json({
+          ...deployment,
+          bannerUrl: `/api/banners/${deployment.id}`,
+          status: "complete",
+        });
       } catch (error: any) {
-        // If banner generation fails, update deployment status to failed
+        // If banner generation fails, update deployment status
         await storage.updateDeployment(deployment.id, {
           status: "failed",
           bannerHtml: "",
