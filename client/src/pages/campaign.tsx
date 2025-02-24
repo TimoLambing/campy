@@ -1,14 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
-import { useParams } from "wouter";
+import { useParams, Link } from "wouter";
 import type { Campaign, Content, Deployment } from "@shared/schema";
 import ContentGenerator from "@/components/content-generator";
 import PlatformSelector from "@/components/platform-selector";
 import ProgressTracker from "@/components/progress-tracker";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 
 export default function CampaignPage() {
   const { id } = useParams<{ id: string }>();
-  
+
   const { data: campaign } = useQuery<Campaign>({
     queryKey: [`/api/campaigns/${id}`],
   });
@@ -25,7 +27,15 @@ export default function CampaignPage() {
 
   return (
     <div className="container mx-auto py-8">
-      <h1 className="text-4xl font-bold mb-8">{campaign.name}</h1>
+      <div className="mb-8">
+        <Link href="/">
+          <Button variant="ghost" size="sm" className="mb-4">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Home
+          </Button>
+        </Link>
+        <h1 className="text-4xl font-bold">{campaign.name}</h1>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="space-y-8">
@@ -45,24 +55,43 @@ export default function CampaignPage() {
             <CardContent>
               <PlatformSelector 
                 campaignId={Number(id)} 
-                selectedPlatforms={campaign.platforms} 
+                selectedPlatforms={campaign.platforms}
+                deployments={deployments || []} 
               />
             </CardContent>
           </Card>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Campaign Progress</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ProgressTracker 
-              campaign={campaign}
-              contents={contents || []}
-              deployments={deployments || []}
-            />
-          </CardContent>
-        </Card>
+        <div className="space-y-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Campaign Progress</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ProgressTracker 
+                campaign={campaign}
+                contents={contents || []}
+                deployments={deployments || []}
+              />
+            </CardContent>
+          </Card>
+
+          {deployments?.map((deployment) => (
+            deployment.bannerPreview && (
+              <Card key={deployment.id}>
+                <CardHeader>
+                  <CardTitle>Banner Preview - {deployment.platform}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div 
+                    className="rounded-lg border bg-card overflow-hidden"
+                    dangerouslySetInnerHTML={{ __html: deployment.bannerPreview }}
+                  />
+                </CardContent>
+              </Card>
+            )
+          ))}
+        </div>
       </div>
     </div>
   );

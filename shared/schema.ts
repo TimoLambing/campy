@@ -25,6 +25,8 @@ export const deployments = pgTable("deployments", {
   campaignId: integer("campaign_id").notNull(),
   platform: text("platform").notNull(),
   status: text("status").notNull(),
+  bannerHtml: text("banner_html"),
+  bannerPreview: text("banner_preview"),
   cost: integer("cost"),
   metrics: json("metrics"),
 });

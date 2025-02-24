@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
 import { insertCampaignSchema, insertContentSchema, insertDeploymentSchema } from "@shared/schema";
-import { analyzeImage, generateImage, summarizeArticle, generateCampaignText } from "./ai/openai";
+import { analyzeImage, generateImage, summarizeArticle, generateCampaignText, generateLandingPage } from "./ai/openai";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Campaigns
@@ -82,12 +82,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Deployments
   app.post("/api/campaigns/:id/deploy", async (req, res) => {
     try {
+      const campaignId = Number(req.params.id);
       const deployment = insertDeploymentSchema.parse({
         ...req.body,
-        campaignId: Number(req.params.id),
+        campaignId,
       });
 
+      // Create initial deployment
       const result = await storage.createDeployment(deployment);
+
+      // Start async banner generation
+      const campaign = await storage.getCampaign(campaignId);
+      const contents = await storage.getContentsByCampaign(campaignId);
+      if (campaign && contents.length > 0) {
+        const bannerHtml = await generateLandingPage({
+          name: campaign.name,
+          description: contents[0].content,
+          target: campaign.target,
+        });
+
+        // Update deployment with banner HTML and preview
+        await storage.updateDeployment(result.id, {
+          bannerHtml,
+          bannerPreview: bannerHtml, // For now, use the same HTML for preview
+          status: "complete",
+        });
+      }
+
       res.json(result);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
