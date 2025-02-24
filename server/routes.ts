@@ -83,34 +83,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/campaigns/:id/deploy", async (req, res) => {
     try {
       const campaignId = Number(req.params.id);
-      const deployment = insertDeploymentSchema.parse({
-        ...req.body,
-        campaignId,
-      });
+      const { platform } = z.object({
+        platform: z.string(),
+        status: z.string(),
+      }).parse(req.body);
 
       // Create initial deployment
-      const result = await storage.createDeployment(deployment);
+      const deployment = await storage.createDeployment({
+        campaignId,
+        platform,
+        status: "generating",
+      });
 
-      // Start async banner generation
+      // Start banner generation
       const campaign = await storage.getCampaign(campaignId);
       const contents = await storage.getContentsByCampaign(campaignId);
-      if (campaign && contents.length > 0) {
-        const bannerHtml = await generateLandingPage({
-          name: campaign.name,
-          description: contents[0].content,
-          target: campaign.target,
-        });
 
-        // Update deployment with banner HTML and preview
-        await storage.updateDeployment(result.id, {
-          bannerHtml,
-          bannerPreview: bannerHtml, // For now, use the same HTML for preview
-          status: "complete",
-        });
+      if (!campaign || !contents.length) {
+        throw new Error("Campaign or contents not found");
       }
 
-      res.json(result);
+      const textContent = contents.find(c => c.type === "text")?.content || "";
+      const imageContent = contents.find(c => c.type === "image")?.content || "";
+
+      // Generate platform-specific banner HTML
+      const bannerHtml = await generateLandingPage({
+        name: campaign.name,
+        description: textContent,
+        target: {
+          platform,
+          imageUrl: imageContent,
+          ...campaign.target,
+        },
+      });
+
+      if (!bannerHtml) {
+        throw new Error("Failed to generate banner HTML");
+      }
+
+      // Update deployment with banner HTML
+      await storage.updateDeployment(deployment.id, {
+        bannerHtml,
+        bannerPreview: bannerHtml,
+        status: "complete",
+      });
+
+      res.json(deployment);
     } catch (error: any) {
+      console.error("Deployment error:", error);
       res.status(500).json({ error: error.message });
     }
   });

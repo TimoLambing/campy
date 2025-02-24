@@ -25,8 +25,8 @@ export const deployments = pgTable("deployments", {
   campaignId: integer("campaign_id").notNull(),
   platform: text("platform").notNull(),
   status: text("status").notNull(),
-  bannerHtml: text("banner_html"),
-  bannerPreview: text("banner_preview"),
+  bannerHtml: text("banner_html").notNull().default(""),
+  bannerPreview: text("banner_preview").notNull().default(""),
   cost: integer("cost"),
   metrics: json("metrics"),
 });
@@ -42,6 +42,8 @@ export const insertContentSchema = createInsertSchema(contents).omit({
 
 export const insertDeploymentSchema = createInsertSchema(deployments).omit({
   id: true,
+  bannerHtml: true,
+  bannerPreview: true,
 });
 
 export type Campaign = typeof campaigns.$inferSelect;

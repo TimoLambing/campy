@@ -59,6 +59,13 @@ export default function PlatformSelector({ campaignId, selectedPlatforms, deploy
         description: "The banner is being generated and will be displayed shortly.",
       });
     },
+    onError: (error: any) => {
+      toast({
+        title: "Deployment failed",
+        description: error.message || "Failed to deploy campaign.",
+        variant: "destructive",
+      });
+    },
   });
 
   const handlePlatformClick = async (platform: string) => {
@@ -67,10 +74,10 @@ export default function PlatformSelector({ campaignId, selectedPlatforms, deploy
       if (!selectedPlatforms.includes(platform)) {
         await deployMutation.mutateAsync(platform);
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Failed to update platform selection.",
+        description: error.message || "Failed to update platform selection.",
         variant: "destructive",
       });
     }
