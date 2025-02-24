@@ -14,7 +14,41 @@ const MARKETING_EXPERT_PROMPT = `You are an expert marketing AI assistant with d
 
 Provide detailed, actionable advice based on proven marketing strategies and current industry trends.`;
 
-// Campaign content generation helpers
+export async function generateLandingPage(campaignDetails: {
+  name: string;
+  description: string;
+  target: Record<string, any>;
+}): Promise<string> {
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o",
+    messages: [
+      {
+        role: "system",
+        content: `${MARKETING_EXPERT_PROMPT}\nGenerate a responsive HTML banner for a marketing campaign. Return response as a JSON object with a single 'html' key containing the HTML code. The HTML should:
+1. Use modern CSS Grid/Flexbox for layout
+2. Be optimized for the target platform
+3. Include both text and image content
+4. Use CSS animations for engagement
+5. Return ONLY valid JSON in this format: { "html": "<!DOCTYPE html>...your html code here..." }`,
+      },
+      {
+        role: "user",
+        content: `Generate a banner for the following campaign:
+Name: ${campaignDetails.name}
+Description: ${campaignDetails.description}
+Platform: ${campaignDetails.target.platform}
+Image URL: ${campaignDetails.target.imageUrl}
+
+Return the HTML code as JSON.`,
+      },
+    ],
+    response_format: { type: "json_object" },
+  });
+
+  const result = JSON.parse(response.choices[0].message.content || "{}");
+  return result.html || "";
+}
+
 export async function generateCampaignText(prompt: string): Promise<string> {
   const response = await openai.chat.completions.create({
     model: "gpt-4o",
@@ -47,31 +81,7 @@ export async function generateCampaignImage(prompt: string): Promise<string> {
   return response.data[0].url || "";
 }
 
-export async function generateLandingPage(campaignDetails: {
-  name: string;
-  description: string;
-  target: Record<string, any>;
-}): Promise<string> {
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o",
-    messages: [
-      {
-        role: "system",
-        content: "Generate an HTML landing page template for a marketing campaign. Include modern styling and responsive design.",
-      },
-      {
-        role: "user",
-        content: JSON.stringify(campaignDetails),
-      },
-    ],
-    response_format: { type: "json_object" },
-  });
 
-  const template = JSON.parse(response.choices[0].message.content || "{}");
-  return template.html || "";
-}
-
-// Content analysis helpers
 export async function analyzeContent(content: string): Promise<{
   sentiment: number;
   engagement: number;
@@ -126,7 +136,6 @@ export async function getPlatformRecommendations(content: string, platform: stri
   };
 }
 
-// Helper function for summarizing content
 export async function summarizeArticle(text: string): Promise<string> {
   const response = await openai.chat.completions.create({
     model: "gpt-4o",
@@ -145,7 +154,6 @@ export async function summarizeArticle(text: string): Promise<string> {
   return response.choices[0].message.content || "Could not summarize the article.";
 }
 
-// Helper function for analyzing images
 export async function analyzeImage(base64Image: string): Promise<{
   description: string;
   suggestions: string[];
@@ -179,7 +187,6 @@ export async function analyzeImage(base64Image: string): Promise<{
   };
 }
 
-// Helper function for generating images
 export async function generateImage(prompt: string): Promise<{ url: string }> {
   const response = await openai.images.generate({
     model: "dall-e-3",

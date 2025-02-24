@@ -85,50 +85,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const campaignId = Number(req.params.id);
       const { platform } = z.object({
         platform: z.string(),
-        status: z.string(),
       }).parse(req.body);
 
-      // Create initial deployment
+      // First create deployment in "generating" status
       const deployment = await storage.createDeployment({
         campaignId,
         platform,
         status: "generating",
+        cost: null,
+        metrics: {},
       });
 
-      // Start banner generation
+      // Get campaign and content data
       const campaign = await storage.getCampaign(campaignId);
       const contents = await storage.getContentsByCampaign(campaignId);
 
-      if (!campaign || !contents.length) {
-        throw new Error("Campaign or contents not found");
+      if (!campaign) {
+        throw new Error("Campaign not found");
       }
 
-      const textContent = contents.find(c => c.type === "text")?.content || "";
-      const imageContent = contents.find(c => c.type === "image")?.content || "";
-
-      // Generate platform-specific banner HTML
-      const bannerHtml = await generateLandingPage({
-        name: campaign.name,
-        description: textContent,
-        target: {
-          platform,
-          imageUrl: imageContent,
-          ...campaign.target,
-        },
-      });
-
-      if (!bannerHtml) {
-        throw new Error("Failed to generate banner HTML");
+      if (!contents.length) {
+        throw new Error("No content found for this campaign");
       }
 
-      // Update deployment with banner HTML
-      await storage.updateDeployment(deployment.id, {
-        bannerHtml,
-        bannerPreview: bannerHtml,
-        status: "complete",
-      });
+      const textContent = contents.find(c => c.type === "text")?.content;
+      const imageContent = contents.find(c => c.type === "image")?.content;
 
-      res.json(deployment);
+      if (!textContent || !imageContent) {
+        throw new Error("Both text and image content are required");
+      }
+
+      try {
+        // Generate platform-specific banner HTML
+        const bannerHtml = await generateLandingPage({
+          name: campaign.name,
+          description: textContent,
+          target: {
+            platform,
+            imageUrl: imageContent,
+          },
+        });
+
+        if (!bannerHtml) {
+          throw new Error("Failed to generate banner HTML");
+        }
+
+        // Update deployment with generated banner
+        await storage.updateDeployment(deployment.id, {
+          bannerHtml,
+          bannerPreview: bannerHtml,
+          status: "complete",
+        });
+
+        const updatedDeployment = await storage.updateCampaignStatus(
+          campaignId,
+          "deployed"
+        );
+
+        res.json(updatedDeployment);
+      } catch (error: any) {
+        // If banner generation fails, update deployment status to failed
+        await storage.updateDeployment(deployment.id, {
+          status: "failed",
+          bannerHtml: "",
+          bannerPreview: "",
+        });
+        throw error;
+      }
     } catch (error: any) {
       console.error("Deployment error:", error);
       res.status(500).json({ error: error.message });
